@@ -1,0 +1,271 @@
+<!--SOURCES-->
+<!--https://groups.google.com/forum/#!topic/microsoft.public.scripting.wsh/eLNcG5sLtRA-->
+<!--SOURCES-->
+<head>
+<title>Profile Cleanup</title>
+<HTA:APPLICATION 
+     APPLICATIONNAME="Profile Cleanup"
+     SCROLL="yes"
+     SINGLEINSTANCE="yes"
+>
+<object id="oSink" style="display:none;" classid="clsid:75718C9A-F029-11D1-A1AC-00C04FB6C223"></object>
+<object id="uSink" style="display:none;" classid="clsid:75718C9A-F029-11D1-A1AC-00C04FB6C223"></object>
+<object id="dSink" style="display:none;" classid="clsid:75718C9A-F029-11D1-A1AC-00C04FB6C223"></object>
+<!--<script language="vbscript" for="oSink" event="OnObjectReady(objObject, objAsyncContext)"></script>-->
+</head>
+
+<script type="text/vbscript">
+
+	Dim objWMIService, bjSWbemLocator
+
+    Sub WMIProfiles()
+		//window.document.getElementById("container").innerHTML("test")
+		strComputer = getComputer()
+		//MsgBox(strComputer)
+		//MsgBox(computer)
+	
+		Set bjSWbemLocator = CreateObject("WbemScripting.SWbemLocator")
+		If windowsIntegrated() Then
+			Set objWMIService = bjSWbemLocator.ConnectServer(strComputer, "root\cimv2")
+		Else
+			Set objWMIService = bjSWbemLocator.ConnectServer(strComputer, "root\cimv2", getUsername(), getPassword())
+		End If
+		clearPassword()
+		//Set oSink = CreateObject("WbemScripting.SWbemSink","oSink_")
+		objWMIService.ExecQueryAsync oSink, "SELECT * FROM Win32_UserProfile WHERE LocalPath LIKE 'C:\\Users\\%'"
+    End Sub
+	
+	Sub delProfiles(user)
+		//window.document.getElementById("container").innerHTML("test")
+		strComputer = getComputer()
+		//MsgBox(strComputer)
+		//MsgBox(computer)
+	
+		//Set bjSWbemLocator = CreateObject("WbemScripting.SWbemLocator")
+		//Set objWMIService = bjSWbemLocator.ConnectServer(strComputer, "root\cimv2")
+
+		//Set oSink = CreateObject("WbemScripting.SWbemSink","dSink_")
+		objWMIService.ExecQueryAsync uSink, "SELECT * FROM Win32_UserProfile WHERE SID = '" + user + "'"
+    End Sub
+	
+	Sub uSink_OnObjectReady(oInst, octx)
+		oInst.DeleteAsync_(dSink)
+		//window.document.getElementById("container").innerHTML(oInst.SID)
+		//listProfiles oInst.SID, oInst.LocalPath
+	End Sub
+	
+	Sub oSink_OnObjectReady(oInst, octx)
+		//MsgBox("Got Instance: " & oInst.SID)
+		//window.document.getElementById("container").innerHTML(oInst.SID)
+		listProfiles oInst.SID, oInst.LocalPath
+	End Sub
+	
+	Sub oSink_OnCompleted(HResult, oErr, oCtx)
+		queryProfilesCallback
+	End Sub
+	
+	Sub dSink_OnCompleted(HResult, oErr, oCtx)
+		If HResult = 0 Then
+			deleteProfileCheckBox()
+		Else
+			//MsgBox("Error: " & HResult)
+			errorCheckbox(HResult)
+		End If
+		deleteProfiles()
+	End Sub
+</script>
+
+<script type="text/javascript">
+	function listProfiles(SID,path) {
+		//alert(SID,path);
+		var container = document.getElementById("container");
+		var span = document.createElement("span");
+		var text = document.createElement("span");
+		text.innerText = path;
+		span.style.display = "block";
+		var input = document.createElement("<input name='profile' value='" + SID + "'>");
+		input.type = "checkbox";
+		span.appendChild(input);
+		span.appendChild(text);
+		container.appendChild(span);
+	}
+	function queryProfiles() {
+		var container = document.getElementById("container");
+		container.innerText = "";
+		var computer = document.getElementById("computer");
+		//var submit = document.getElementById("submit");
+		//submit.disabled = true;
+		disableInput();
+		computer.disabled = true;
+		try {
+			WMIProfiles();
+		} catch(e) {
+			alert(e.message);
+			enableInput();
+		}
+	}
+	function getComputer() {
+		var computer = document.getElementById("computer");
+		return computer.value;
+	}
+	function getUsername() {
+		var username = document.getElementById("username");
+		return username.value;
+	}
+	function getPassword() {
+		var password = document.getElementById("password");
+		return password.value;
+	}
+	function clearPassword() {
+		var password = document.getElementById("password");
+		password.value = '';
+	}
+	function windowsIntegrated() {
+		var integrated = document.getElementById("integrated");
+		return integrated.checked;
+	}
+	function queryProfilesCallback() {
+		var container = document.getElementById("container");
+		var computer = document.getElementById("computer");
+		//var submit = document.getElementById("submit");
+		//submit.disabled = false;
+		enableInput();
+		computer.disabled = false;
+		var del = document.createElement("<input type='button' value='Delete' id='delete'>");
+		del.onclick = function() {processDeletions();};
+		container.appendChild(del);
+	}
+	function deleteProfileCheckBox() {
+		var profiles = document.getElementsByName("profile");
+		//alert(profiles.length);
+		for(i = profiles.length - 1; i >= 0; i--) {
+			if(profiles[i].checked==true) {
+				//alert(profiles[i].value);
+				var span = profiles[i].parentNode
+				span.parentNode.removeChild(span);
+				//delProfiles(profiles[i].value);
+				return;
+			}
+		}
+	}
+	function errorCheckbox(error) {
+		var profiles = document.getElementsByName("profile");
+		//alert(profiles.length);
+		for(i = profiles.length - 1; i >= 0; i--) {
+			if(profiles[i].checked==true) {
+				//alert(profiles[i].value);
+				profiles[i].checked = false;
+				var span = profiles[i].parentNode
+				var userpath = span.childNodes[1]
+				userpath.innerText = userpath.innerText + " (" + error + ")"
+				userpath.style.color = "red";
+				//delProfiles(profiles[i].value);
+				return;
+			}
+		}
+	}
+	function disableInput() {
+		var inputs = document.getElementsByTagName("input")
+		for(var i = 0; i <= inputs.length - 1; i++) {
+			inputs[i].disabled = true;
+		}
+	}
+	function enableInput() {
+		var inputs = document.getElementsByTagName("input")
+		for(var i = 0; i <= inputs.length - 1; i++) {
+			inputs[i].disabled = false;
+		}
+	}
+	function processDeletions() {
+		//var deletebutton = document.getElementById("delete");
+		//deletebutton.disabled = true;
+		disableInput();
+		deleteProfiles();
+	}
+	function deleteProfiles() {
+		var profiles = document.getElementsByName("profile");
+		//alert(profiles.length);
+		for(i = profiles.length - 1; i >= 0; i--) {
+			if(profiles[i].checked==true) {
+				//alert(profiles[i].value);
+				//var span = profiles[i].parentNode
+				//span.parentNode.removeChild(span);
+				delProfiles(profiles[i].value);
+				return;
+			}
+		}
+		//var deletebutton = document.getElementById("delete");
+		//deletebutton.disabled = false;
+		enableInput()
+	}
+	function focusInput() {
+		var computer = document.getElementById("computer");
+		computer.focus();
+	}
+	window.onload = function() {
+		//alert('here');
+		window.resizeTo(500,700);
+		focusInput();
+		var integrated = document.getElementById('integrated');
+		integrated.onclick = function() {
+			if(this.checked) {
+				//alert('checked');
+				manualCreds(false)
+			} else {
+				//alert('unchecked');
+				manualCreds(true)
+			}
+		}
+	}
+	function manualCreds(status) {
+		var userrow = document.getElementById('userrow');
+		var passrow = document.getElementById('passrow');
+		if(status) {
+			userrow.style.display = 'inline';
+			passrow.style.display = 'inline';
+		} else {
+			userrow.style.display = 'none';
+			passrow.style.display = 'none';
+		}
+	}
+</script>
+
+<body>
+	<table>
+		<tr>
+			<td>
+				Computer Name:
+			</td>
+			<td>
+				<input id="computer" type="text" value="" />
+			</td>
+			<td>
+				<input id="submit" type="submit" value="Submit" onclick="queryProfiles()" />
+			</td>
+		</tr>
+		<tr id="auth">
+			<td colspan="3">
+				<input type="checkbox" checked id="integrated" />Use Windows Integrated Authentication
+			</td>
+		</tr>
+		<tr id="userrow" style="display: none;">
+			<td>
+				Username: 
+			</td>
+			<td colspan="2">
+				<input id="username" type="text" value="" />
+			</td>
+		</tr>
+		<tr id="passrow" style="display: none;">
+			<td>
+				Password: 
+			</td>
+			<td colspan="2">
+				<input id="password" type="password" value="" />
+			</td>
+		</tr>
+	</table>
+	<hr></hr>
+	<div id="container">
+	</div>
+</body>
