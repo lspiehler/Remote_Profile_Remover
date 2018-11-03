@@ -99,9 +99,11 @@
 		computer.disabled = true;
 		try {
 			WMIProfiles();
+			document.getElementById("selall").disabled = false;
 		} catch(e) {
 			alert(e.message);
 			enableInput();
+			document.getElementById("selall").disabled = true;
 		}
 	}
 	function getComputer() {
@@ -162,6 +164,16 @@
 				//delProfiles(profiles[i].value);
 				return;
 			}
+		}
+	}
+	function selectAll() {
+		var selall = document.getElementById("selall");
+		var profiles = document.getElementsByName("profile");
+		//alert(selall.checked);
+		for(i = profiles.length - 1; i >= 0; i--) {
+			//alert(profiles[i].value);
+			profiles[i].checked = selall.checked;
+			//return;
 		}
 	}
 	function disableInput() {
@@ -262,6 +274,11 @@
 			</td>
 			<td colspan="2">
 				<input id="password" type="password" value="" />
+			</td>
+		</tr>
+		<tr id="selectall">
+			<td colspan="3">
+				<input disabled id="selall" type="checkbox" value="" onclick="selectAll()" /> Select All
 			</td>
 		</tr>
 	</table>
